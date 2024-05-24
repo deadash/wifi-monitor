@@ -1,8 +1,9 @@
 use std::{collections::HashMap, process::Stdio};
 use chrono::Local;
+use chrono_tz::Tz;
 use curl_parser::ParsedRequest;
 use serde::{Deserialize, Serialize};
-use log::{info, warn, error};
+use log::{error, info, trace, warn};
 use anyhow::{Context, Result};
 use time_condition::{is_time_condition_satisfied, TimeCondition};
 use tokio::{fs, io::{AsyncBufReadExt, BufReader}, process::Command};
@@ -15,10 +16,25 @@ struct WebhookConfig {
     time_condition: Option<TimeCondition>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Config {
     webhook_configs: HashMap<String, WebhookConfig>,
     monitored_macs: Vec<String>,
+    #[serde(default = "default_timezone", deserialize_with = "deserialize_timezone")]
+    timezone: Tz,
+}
+
+fn default_timezone() -> Tz {
+    "Asia/Shanghai".parse().unwrap()
+}
+
+fn deserialize_timezone<'de, D>(deserializer: D) -> std::result::Result<Tz, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt: Option<String> = Option::deserialize(deserializer)?;
+    let tz_str = opt.unwrap_or_else(|| "Asia/Shanghai".to_string());
+    tz_str.parse().map_err(serde::de::Error::custom)
 }
 
 async fn load_config(config_path: &str) -> Result<Config> {
@@ -114,13 +130,13 @@ fn parse_event(line: &str) -> Option<IwEvent> {
             },
         }
     } else {
-        warn!("Failed to parse iw event line: {}", line);
+        trace!("skip other event: {}", line);
         None
     }
 }
 
 async fn handle_event(event: &IwEvent, config: &Config) -> Result<()> {
-    let now = Local::now();
+    let now = Local::now().with_timezone(&config.timezone);
 
     let (event_key, mac_address) = match event {
         IwEvent::New(mac) => {
@@ -170,6 +186,7 @@ async fn execute_command(command: &str, mac_address: &str, event_key: &str) -> R
 
     // 确保响应状态是成功的
     if resp.status().is_success() {
+        info!("execute ok, {}", resp.text().await?);
         Ok(())
     } else {
         anyhow::bail!("Request failed with status: {}", resp.status());

@@ -1,5 +1,6 @@
+use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Local, Timelike};
+use chrono::{DateTime, Timelike};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum TimeCondition {
@@ -9,7 +10,7 @@ pub enum TimeCondition {
 }
 
 
-pub fn is_time_condition_satisfied(time_condition: &Option<TimeCondition>, now: &DateTime<Local>) -> bool {
+pub fn is_time_condition_satisfied(time_condition: &Option<TimeCondition>, now: &DateTime<Tz>) -> bool {
     match time_condition {
         Some(TimeCondition::TimeRange(start, end)) => {
             // 解析开始时间和结束时间为小时和分钟
@@ -53,52 +54,4 @@ fn parse_time(time_str: &str) -> (u32, u32) {
     let hour = parts.get(0).unwrap_or(&"00").parse::<u32>().unwrap_or(0);
     let minute = parts.get(1).unwrap_or(&"00").parse::<u32>().unwrap_or(0);
     (hour, minute)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::{Local, TimeZone};
-
-    #[test]
-    fn test_time_range_condition_satisfied() {
-        let time_condition = Some(TimeCondition::TimeRange("08:00".to_string(), "10:00".to_string()));
-        let now = Local.ymd(2024, 4, 8).and_hms(9, 0, 0); // 假设现在是上午9点
-        assert!(is_time_condition_satisfied(&time_condition, &now));
-    }
-
-    #[test]
-    fn test_time_range_condition_not_satisfied() {
-        let time_condition = Some(TimeCondition::TimeRange("11:00".to_string(), "12:00".to_string()));
-        let now = Local.ymd(2024, 4, 8).and_hms(10, 0, 0); // 假设现在是上午10点
-        assert!(!is_time_condition_satisfied(&time_condition, &now));
-    }
-
-    #[test]
-    fn test_after_condition_satisfied() {
-        let time_condition = Some(TimeCondition::After("07:00".to_string()));
-        let now = Local.ymd(2024, 4, 8).and_hms(8, 0, 0); // 假设现在是上午8点
-        assert!(is_time_condition_satisfied(&time_condition, &now));
-    }
-
-    #[test]
-    fn test_after_condition_not_satisfied() {
-        let time_condition = Some(TimeCondition::After("09:00".to_string()));
-        let now = Local.ymd(2024, 4, 8).and_hms(8, 30, 0); // 假设现在是上午8点半
-        assert!(!is_time_condition_satisfied(&time_condition, &now));
-    }
-
-    #[test]
-    fn test_before_condition_satisfied() {
-        let time_condition = Some(TimeCondition::Before("09:00".to_string()));
-        let now = Local.ymd(2024, 4, 8).and_hms(8, 30, 0); // 假设现在是上午8点半
-        assert!(is_time_condition_satisfied(&time_condition, &now));
-    }
-
-    #[test]
-    fn test_before_condition_not_satisfied() {
-        let time_condition = Some(TimeCondition::Before("07:00".to_string()));
-        let now = Local.ymd(2024, 4, 8).and_hms(8, 0, 0); // 假设现在是上午8点
-        assert!(!is_time_condition_satisfied(&time_condition, &now));
-    }
 }

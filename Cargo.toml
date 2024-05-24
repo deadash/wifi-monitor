@@ -16,6 +16,7 @@ chrono = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 tokio = { version = "1.37", features = ["fs", "process", "macros", "rt-multi-thread"]}
 curl-parser = { git = "https://github.com/deadash/curl-parser.git" }
+chrono-tz = "0.9"
 
 [profile.release]
 panic = "abort"
